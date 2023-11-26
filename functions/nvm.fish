@@ -78,9 +78,11 @@ function nvm --description "Node version manager"
                     case {MSYS_NT,MINGW\*_NT}\*
                         set os win
                         set ext zip
-                    case \*
-                        echo "nvm: Unsupported operating system: \"$os\"" >&2
-                        return 1
+                        set make make
+                    case freebsd
+                        set from_source true
+                        set ext tar.gz
+                        set make gmake
                 end
 
                 switch $arch
@@ -102,10 +104,15 @@ function nvm --description "Node version manager"
                 end
 
                 set --query nvm_arch && set arch $nvm_arch
-
-                set --local dir "node-$ver-$os-$arch"
-                set --local url $nvm_mirror/$ver/$dir.$ext
-
+                
+                if test "$from_source"
+                    set dir "node-$ver"
+                    set url $nvm_mirror/$ver/$dir.$ext
+                else
+                    set dir "node-$ver-$os-$arch"
+                    set url $nvm_mirror/$ver/$dir.$ext
+                end
+                
                 command mkdir -p $nvm_data/$ver
 
                 if ! set --query silent
@@ -122,11 +129,17 @@ function nvm --description "Node version manager"
 
                 set --query silent || echo -en "\033[F\33[2K\x1b[0m"
 
-                if test "$os" = win
+                if test "$from_source"
+                    command $nvm_data/$ver/$dir/configure --prefix=$nvm_data/$ver
+                    command $make -j4 -C "$nvm_data/$ver/$dir" install
+                    command rm -rf $nvm_data/$ver/$dir
+                else
+                    if test "$os" = win
                     command mv $nvm_data/$ver/$dir $nvm_data/$ver/bin
                 else
                     command mv $nvm_data/$ver/$dir/* $nvm_data/$ver
                     command rm -rf $nvm_data/$ver/$dir
+                    end
                 end
             end
 
